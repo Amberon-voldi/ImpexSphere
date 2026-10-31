@@ -1,30 +1,39 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:impex_sphere/main.dart';
+import 'package:impex_sphere/core/theme/app_colors.dart';
+import 'package:impex_sphere/core/widgets/brand_mark.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('brand logo renders legibly on the navy theme', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(800, 200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          debugShowCheckedModeBanner: false,
+          home: ColoredBox(
+            color: AppColors.navy900,
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  BrandLogo(height: 60),
+                  SizedBox(height: 20),
+                  ColoredBox(color: Colors.white, child: BrandLogo(height: 40, onDark: false)),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      for (final element in find.byType(Image).evaluate()) {
+        await precacheImage((element.widget as Image).image, element);
+      }
+    });
+    await tester.pumpAndSettle();
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.bySemanticsLabel('ImpexSphere'), findsNWidgets(2));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('goldens/brand_logo.png'));
   });
 }
