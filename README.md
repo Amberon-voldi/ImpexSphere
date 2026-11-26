@@ -14,7 +14,7 @@ Built with Next.js (App Router) and TypeScript, with no UI framework. All stylin
 | `/suppliers` | Export enablement vs logistics support, verification criteria, **supplier registration form** (`#register`) |
 | `/about` | Problems solved, verticals, 5-phase roadmap |
 | `/contact` | General contact form |
-| `/api/enquiry` | Receives all three forms, validates them, and emails the submission |
+| `/api/enquiry` | Receives all three forms, validates them, saves to Postgres and optionally emails a notification |
 
 Site copy (products, services, steps, phases) lives in `src/lib/content.ts`.
 
@@ -22,21 +22,34 @@ Site copy (products, services, steps, phases) lives in `src/lib/content.ts`.
 
 ```sh
 npm install
-npm run dev        # http://localhost:3000
-npm run build && npm start
+cp .env.example .env.local   # set DATABASE_URL
+npm run db:migrate           # create tables
+npm run dev                  # http://localhost:3000
 ```
 
-## Form delivery
+Production: `npm run build && npm start`, with `DATABASE_URL` set and `npm run db:migrate` run on each deploy.
 
-Copy `.env.example` to `.env.local` and set:
+## Database (PostgreSQL)
 
-| Variable | Meaning |
+The site uses [Drizzle ORM](https://orm.drizzle.team) with the `postgres` driver.
+
+| Path | What |
 | --- | --- |
-| `RESEND_API_KEY` | API key from [resend.com](https://resend.com) |
-| `ENQUIRY_TO_EMAIL` | Inbox(es) for submissions, comma-separated |
-| `ENQUIRY_FROM_EMAIL` | Sender on a domain verified in Resend |
+| `src/db/schema.ts` | Table definitions, the source of truth |
+| `src/db/index.ts` | Connection pool (`getDb()`) |
+| `drizzle/` | Generated SQL migrations, committed |
 
-Without these, submissions are printed to the server log in development. In production the form shows an error, so nothing is silently lost.
+| Command | Does |
+| --- | --- |
+| `npm run db:generate` | Creates a new migration after you edit `schema.ts` |
+| `npm run db:migrate` | Applies pending migrations to `DATABASE_URL` |
+| `npm run db:studio` | Opens Drizzle Studio to browse the data |
+
+**`enquiries` table:** every quote request, supplier registration and contact message, with `kind` (`quote` / `supplier` / `contact`) and `status` (`new` / `in_progress` / `closed` / `spam`), plus the form fields, IP, user agent and timestamps. Bot submissions caught by the honeypot are not stored.
+
+## Email notifications (optional)
+
+Set `RESEND_API_KEY`, `ENQUIRY_TO_EMAIL` and `ENQUIRY_FROM_EMAIL` to get an email for each new submission. Submissions are always saved to Postgres first. If the email fails, it is only logged, and the submission is still saved.
 
 ## Next: the marketplace (Phase 3)
 

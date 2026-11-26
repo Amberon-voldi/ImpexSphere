@@ -6,17 +6,24 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "tsc --noEmit"
+    "lint": "tsc --noEmit",
+    "db:generate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs generate",
+    "db:migrate": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs migrate",
+    "db:studio": "node --env-file-if-exists=.env.local node_modules/drizzle-kit/bin.cjs studio"
   },
   "dependencies": {
+    "drizzle-orm": "^0.45.4",
     "next": "16.4.6",
+    "postgres": "^4.1.1",
     "react": "19.3.1",
-    "react-dom": "19.3.1"
+    "react-dom": "19.3.1",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@types/node": "^22",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "drizzle-kit": "^0.31.11",
     "typescript": "^5"
   }
 }
