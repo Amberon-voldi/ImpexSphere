@@ -3,10 +3,9 @@
 import { and, eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { categories, enquiries, getDb, listingPrices, listings, rfqs, suppliers } from "@/db";
-import { requestMeta, requireSupplier } from "@/lib/auth";
+import { categories, getDb, listingPrices, listings, suppliers } from "@/db";
+import { requireSupplier } from "@/lib/auth";
 import { incoterms as INCOTERMS } from "@/lib/content";
-import { notify } from "@/lib/notify";
 import { slugify, uniqueSlug } from "@/lib/slug";
 import type { FormState } from "./auth";
 
@@ -180,44 +179,4 @@ export async function updateCompany(_: FormState, f: FormData): Promise<FormStat
   revalidatePath("/dashboard", "layout");
   revalidatePath(`/suppliers/${user.supplier.slug}`);
   return { ok: "Company profile saved." };
-}
-
-export async function sendRfqOffer(_: FormState, f: FormData): Promise<FormState> {
-  const user = await requireSupplier();
-  const ref = str(f, "ref", 40);
-  const message = str(f, "message", 5000);
-  const location = str(f, "location", 160);
-  if (!message || !location) return { error: "Add your offer and dispatch location." };
-  const db = getDb();
-  const [r] = await db
-    .select({ id: rfqs.id, commodity: rfqs.commodity })
-    .from(rfqs)
-    .where(and(eq(rfqs.ref, ref), eq(rfqs.status, "open")))
-    .limit(1);
-  if (!r) return { error: "This buying request is no longer open." };
-  const [dup] = await db
-    .select({ id: enquiries.id })
-    .from(enquiries)
-    .where(and(eq(enquiries.rfqId, r.id), eq(enquiries.supplierId, user.supplier.id)))
-    .limit(1);
-  if (dup) return { error: "You've already sent an offer on this request." };
-
-  const [sup] = await db.select({ city: suppliers.city }).from(suppliers).where(eq(suppliers.id, user.supplier.id)).limit(1);
-  const data = {
-    name: user.name,
-    company: user.supplier.name,
-    email: user.email,
-    phone: user.phone ?? undefined,
-    commodity: r.commodity,
-    location: location || sup?.city,
-    quantity: str(f, "quantity", 120) || undefined,
-    message,
-  };
-  const [row] = await db
-    .insert(enquiries)
-    .values({ kind: "rfq_offer", rfqId: r.id, userId: user.id, supplierId: user.supplier.id, ...data, ...(await requestMeta()) })
-    .returning({ id: enquiries.id });
-  await notify(`Offer on ${ref} — ${data.company}`, "Offer on buying request", data, row.id).catch((e) => console.error(e));
-  revalidatePath("/dashboard/rfqs");
-  return { ok: "Offer sent to the trade desk." };
 }

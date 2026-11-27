@@ -1,23 +1,26 @@
 import type { Metadata } from "next";
-import { Expand, OfferForm } from "@/components/dashboard";
+import Link from "next/link";
+import { Expand } from "@/components/dashboard";
+import { SupplierOfferForm } from "@/components/messaging";
 import { StatusPill } from "@/components/ui";
 import { requireSupplier } from "@/lib/auth";
 import { ago } from "@/lib/format";
-import { getSupplierRow, rfqsForSupplier } from "@/lib/supplierData";
+import { rfqsForSupplier } from "@/lib/supplierData";
 
 export const metadata: Metadata = { title: "Buying requests" };
 
 export default async function SupplierRfqs() {
   const user = await requireSupplier("/dashboard/rfqs");
-  const [rows, sup] = await Promise.all([rfqsForSupplier(user.supplier.id), getSupplierRow(user.supplier.id)]);
+  const rows = await rfqsForSupplier(user.supplier.id);
   return (
     <>
       <div className="dash-head">
         <div>
           <span className="eyebrow">Buying requests</span>
           <h1 className="dash-h1">Open requests from importers</h1>
-          <p className="muted" style={{ margin: 0 }}>Requests in your categories are shown first. Send an offer and the trade desk will follow up.</p>
+          <p className="muted" style={{ margin: 0 }}>Requests in your categories come first. Send a priced offer; the trade desk reviews it and shares it with the buyer.</p>
         </div>
+        <Link href="/dashboard/offers" className="btn btn-sm">My offers</Link>
       </div>
       {rows.length ? (
         <div className="rfq-list">
@@ -31,7 +34,7 @@ export default async function SupplierRfqs() {
                       <span className="mono muted">{r.ref}</span>
                       <span className="muted">{ago(r.createdAt.toISOString())}</span>
                       {r.match && <span className="badge badge-verified">Matches you</span>}
-                      {r.offer && <StatusPill status={`offer ${r.offer.status === "new" ? "sent" : r.offer.status}`} />}
+                      {r.offer && <StatusPill status={r.offer.status} />}
                     </div>
                     <b>{r.commodity}</b>
                     <span className="muted">{r.quantity} → {r.destination}{r.incoterm ? ` · ${r.incoterm}` : ""}{r.targetPrice ? ` · target ${r.targetPrice}` : ""}</span>
@@ -41,9 +44,12 @@ export default async function SupplierRfqs() {
                 {r.specs && <p style={{ color: "var(--ink-2)" }}>{r.specs}</p>}
                 {r.deliveryBy && <p className="muted">Needed: {r.deliveryBy}</p>}
                 {r.offer ? (
-                  <p className="muted">You sent an offer {ago(r.offer.createdAt.toISOString())}. The trade desk will be in touch.</p>
+                  <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+                    <span className="muted">You sent offer <span className="mono">{r.offer.ref}</span> {ago(r.offer.createdAt.toISOString())}.</span>
+                    {r.offer.threadId && <Link href={`/messages/${r.offer.threadId}`} className="btn btn-sm">Open conversation</Link>}
+                  </div>
                 ) : (
-                  <OfferForm refId={r.ref} defaultLocation={sup ? `${sup.city}, ${sup.state}` : ""} />
+                  <SupplierOfferForm rfq={r.ref} defaults={{ incoterm: r.incoterm, port: r.destination }} />
                 )}
               </Expand>
             </div>

@@ -78,6 +78,9 @@ export default async function AdminEnquiries({ searchParams }: { searchParams: P
                   .map(([k, v]) => (<div key={k} style={{ display: "contents" }}><dt>{k}</dt><dd>{v}</dd></div>))}
                 {e.message && (<><dt>Message</dt><dd style={{ whiteSpace: "pre-wrap" }}>{e.message}</dd></>)}
               </dl>
+              {e.kind === "listing_quote" && (
+                <Link href={`/messages/quote/${e.id}`} className="btn btn-sm" style={{ marginTop: 12 }}>Open conversation</Link>
+              )}
               <form action={setEnquiry} className="admin-actions">
                 <input type="hidden" name="id" value={e.id} />
                 <label className="field" style={{ flex: 1, minWidth: 220 }}>

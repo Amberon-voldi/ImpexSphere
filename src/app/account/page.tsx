@@ -1,10 +1,10 @@
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PasswordForm, ProfileForm, ResendVerification, SignOutButton } from "@/components/AccountForms";
 import Icon from "@/components/Icon";
 import { StatusPill } from "@/components/ui";
-import { enquiries, getDb, listings, rfqs } from "@/db";
+import { enquiries, getDb, listings, rfqs, threads } from "@/db";
 import { requireUser } from "@/lib/auth";
 import { ago } from "@/lib/format";
 
@@ -16,16 +16,35 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
   const db = getDb();
   const [myRfqs, myQuotes] = await Promise.all([
     db
-      .select({ ref: rfqs.ref, commodity: rfqs.commodity, quantity: rfqs.quantity, destination: rfqs.destination, status: rfqs.status, createdAt: rfqs.createdAt })
+      .select({
+        ref: rfqs.ref,
+        commodity: rfqs.commodity,
+        quantity: rfqs.quantity,
+        destination: rfqs.destination,
+        status: rfqs.status,
+        createdAt: rfqs.createdAt,
+        offers: sql<number>`(select count(*)::int from impexsphere.offers o where o.rfq_id = ${rfqs.id} and o.status in ('shared','accepted','declined'))`,
+      })
       .from(rfqs)
       .where(eq(rfqs.userId, user.id))
       .orderBy(desc(rfqs.createdAt))
       .limit(50),
     db
-      .select({ id: enquiries.id, commodity: enquiries.commodity, quantity: enquiries.quantity, status: enquiries.status, createdAt: enquiries.createdAt, slug: listings.slug })
+      .select({
+        id: enquiries.id,
+        kind: enquiries.kind,
+        commodity: enquiries.commodity,
+        quantity: enquiries.quantity,
+        status: enquiries.status,
+        createdAt: enquiries.createdAt,
+        slug: listings.slug,
+        threadId: threads.id,
+        quotes: sql<number>`(select count(*)::int from impexsphere.offers o where o.enquiry_id = ${enquiries.id} and o.status in ('shared','accepted','declined'))`,
+      })
       .from(enquiries)
       .leftJoin(listings, eq(enquiries.listingId, listings.id))
-      .where(eq(enquiries.userId, user.id))
+      .leftJoin(threads, eq(threads.enquiryId, enquiries.id))
+      .where(and(eq(enquiries.userId, user.id), eq(enquiries.kind, "listing_quote")))
       .orderBy(desc(enquiries.createdAt))
       .limit(50),
   ]);
@@ -74,14 +93,15 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 <div className="table-wrap">
                   <table className="table">
                     <thead>
-                      <tr><th>Ref</th><th>Commodity</th><th>Quantity</th><th>Status</th><th>Posted</th></tr>
+                      <tr><th>Ref</th><th>Commodity</th><th>Quantity</th><th>Offers</th><th>Status</th><th>Posted</th></tr>
                     </thead>
                     <tbody>
                       {myRfqs.map((r) => (
                         <tr key={r.ref}>
-                          <td className="mono">{r.status === "open" ? <Link href={`/rfq/${r.ref}`} className="link">{r.ref}</Link> : r.ref}</td>
+                          <td className="mono"><Link href={`/account/requests/${r.ref}`} className="link">{r.ref}</Link></td>
                           <td>{r.commodity}</td>
                           <td>{r.quantity} → {r.destination}</td>
+                          <td>{r.offers ? <Link href={`/account/requests/${r.ref}`} className="badge badge-verified">{r.offers} offer{r.offers > 1 ? "s" : ""}</Link> : <span className="muted">—</span>}</td>
                           <td><StatusPill status={r.status === "pending" ? "in_review" : r.status} /></td>
                           <td className="muted">{ago(r.createdAt.toISOString())}</td>
                         </tr>
@@ -102,15 +122,17 @@ export default async function AccountPage({ searchParams }: { searchParams: Prom
                 <div className="table-wrap">
                   <table className="table">
                     <thead>
-                      <tr><th>Item</th><th>Quantity</th><th>Status</th><th>Sent</th></tr>
+                      <tr><th>Item</th><th>Quantity</th><th>Quotes</th><th>Status</th><th>Sent</th><th /></tr>
                     </thead>
                     <tbody>
                       {myQuotes.map((q) => (
                         <tr key={q.id}>
                           <td>{q.slug ? <Link href={`/marketplace/${q.slug}`} className="link">{q.commodity}</Link> : q.commodity ?? "Message"}</td>
                           <td>{q.quantity ?? "—"}</td>
+                          <td>{q.quotes ? <span className="badge badge-verified">{q.quotes} quote{q.quotes > 1 ? "s" : ""}</span> : <span className="muted">—</span>}</td>
                           <td><StatusPill status={q.status} /></td>
                           <td className="muted">{ago(q.createdAt.toISOString())}</td>
+                          <td>{q.threadId && <Link href={`/messages/${q.threadId}`} className="btn btn-sm">Conversation</Link>}</td>
                         </tr>
                       ))}
                     </tbody>

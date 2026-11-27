@@ -22,7 +22,7 @@ export function Logo() {
   );
 }
 
-export type HeaderUser = { name: string; email: string; role: "buyer" | "supplier" | "admin"; hasSupplier: boolean } | null;
+export type HeaderUser = { name: string; email: string; role: "buyer" | "supplier" | "admin"; hasSupplier: boolean; unread: number } | null;
 
 function AccountMenu({ user }: { user: NonNullable<HeaderUser> }) {
   const [open, setOpen] = useState(false);
@@ -42,6 +42,7 @@ function AccountMenu({ user }: { user: NonNullable<HeaderUser> }) {
   const links = [
     ...(user.role === "admin" ? [{ href: "/admin", label: "Admin console" }] : []),
     ...(user.hasSupplier ? [{ href: "/dashboard", label: "Supplier dashboard" }, { href: "/dashboard/listings/new", label: "New listing" }] : []),
+    { href: "/messages", label: `Messages${user.unread ? ` (${user.unread})` : ""}` },
     { href: "/account", label: "Account & requests" },
   ];
   return (
@@ -136,6 +137,18 @@ export default function Header({ user }: { user: HeaderUser }) {
                 )}
               </AnimatePresence>
             </button>
+            {user && (
+              <Link href="/messages" className="icon-btn" aria-label={`Messages${user.unread ? `, ${user.unread} unread` : ""}`}>
+                <Icon name="sparkle" />
+                <AnimatePresence>
+                  {user.unread > 0 && (
+                    <motion.span key={user.unread} className="count" initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }} transition={{ type: "spring", stiffness: 600, damping: 15 }}>
+                      {user.unread > 99 ? "99+" : user.unread}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </Link>
+            )}
             {user ? (
               <AccountMenu user={user} />
             ) : (

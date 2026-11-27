@@ -26,7 +26,7 @@ function AnimatedNumber({ value, format }: { value: number; format: (n: number) 
 const fmtInr = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 const fmtUsd = (n: number) => "$" + Math.round(n).toLocaleString("en-US");
 
-export default function QuotePanel({ item }: { item: ShortItem }) {
+export default function QuotePanel({ item, signedIn }: { item: ShortItem; signedIn?: boolean }) {
   const max = Math.max(item.moqKg * 20, item.stockKg);
   const [kg, setKg] = useState(Math.min(item.moqKg * 2, item.stockKg));
   const [open, setOpen] = useState(false);
@@ -102,6 +102,11 @@ export default function QuotePanel({ item }: { item: ShortItem }) {
             <p className="fine">Quantity: {qty(kg)} (change it with the slider above).</p>
           </LeadForm>
         </motion.div>
+      )}
+      {!signedIn && (
+        <p className="fine" style={{ marginTop: 14 }}>
+          <a href={`/login?next=/marketplace/${item.slug}`} className="link">Sign in</a> or <a href="/signup" className="link">create a free account</a> to chat with the supplier and track their quote.
+        </p>
       )}
       <p className="fine" style={{ marginTop: 14 }}>
         Prices are indicative and confirmed on quotation. Exports run on a confirmed order and advance payment.

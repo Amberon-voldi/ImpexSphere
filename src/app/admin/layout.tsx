@@ -1,18 +1,21 @@
 import { count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import DashShell from "@/components/DashShell";
-import { enquiries, getDb, rfqs, suppliers } from "@/db";
+import { enquiries, getDb, offers, rfqs, suppliers } from "@/db";
 import { requireUser } from "@/lib/auth";
+import { unreadCount } from "@/lib/messaging";
 
 export const metadata: Metadata = { title: { default: "Admin", template: "%s · Admin" }, robots: { index: false } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  await requireUser("admin", "/admin");
+  const me = await requireUser("admin", "/admin");
   const db = getDb();
-  const [[ps], [pr], [ne]] = await Promise.all([
+  const [[ps], [pr], [ne], [po], unread] = await Promise.all([
     db.select({ n: count() }).from(suppliers).where(eq(suppliers.status, "pending")),
     db.select({ n: count() }).from(rfqs).where(eq(rfqs.status, "pending")),
     db.select({ n: count() }).from(enquiries).where(eq(enquiries.status, "new")),
+    db.select({ n: count() }).from(offers).where(eq(offers.status, "submitted")),
+    unreadCount(me).catch(() => 0),
   ]);
   return (
     <DashShell
@@ -23,6 +26,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin", label: "Overview", icon: "grid" },
         { href: "/admin/enquiries", label: "Enquiries", icon: "doc", badge: ne.n },
         { href: "/admin/rfqs", label: "Buying requests", icon: "bolt", badge: pr.n },
+        { href: "/admin/offers", label: "Offers", icon: "compare", badge: po.n },
+        { href: "/messages", label: "Messages", icon: "sparkle", badge: unread },
         { href: "/admin/suppliers", label: "Suppliers", icon: "shield", badge: ps.n },
         { href: "/admin/listings", label: "Listings", icon: "box" },
         { href: "/admin/users", label: "Users", icon: "star" },

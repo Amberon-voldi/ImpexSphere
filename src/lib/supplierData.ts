@@ -1,6 +1,6 @@
 import "server-only";
 import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
-import { categories, enquiries, getDb, listings, rfqs, suppliers } from "@/db";
+import { categories, enquiries, getDb, listings, offers, rfqs, suppliers, threads } from "@/db";
 
 /** Listing rows for one supplier, with quote-request counts. */
 export async function supplierListings(supplierId: string) {
@@ -36,9 +36,13 @@ export async function supplierQuoteRequests(supplierId: string, limit = 100) {
       incoterm: enquiries.incoterm,
       message: enquiries.message,
       listing: { id: listings.id, title: listings.title, slug: listings.slug, price: listings.priceInrKg },
+      threadId: threads.id,
+      quotes: sql<number>`(select count(*)::int from impexsphere.offers o where o.enquiry_id = ${enquiries.id})`,
+      unread: sql<number>`0`,
     })
     .from(enquiries)
     .innerJoin(listings, eq(enquiries.listingId, listings.id))
+    .leftJoin(threads, eq(threads.enquiryId, enquiries.id))
     .where(and(eq(listings.supplierId, supplierId), eq(enquiries.kind, "listing_quote")))
     .orderBy(desc(enquiries.createdAt))
     .limit(limit);
@@ -70,9 +74,10 @@ export async function rfqsForSupplier(supplierId: string) {
     .orderBy(desc(rfqs.createdAt))
     .limit(100);
   const mine = await db
-    .select({ rfqId: enquiries.rfqId, status: enquiries.status, createdAt: enquiries.createdAt })
-    .from(enquiries)
-    .where(and(eq(enquiries.supplierId, supplierId), eq(enquiries.kind, "rfq_offer")));
+    .select({ id: offers.id, rfqId: offers.rfqId, ref: offers.ref, status: offers.status, createdAt: offers.createdAt, threadId: threads.id })
+    .from(offers)
+    .leftJoin(threads, eq(threads.offerId, offers.id))
+    .where(and(eq(offers.supplierId, supplierId), sql`${offers.rfqId} is not null`));
   const sent = new Map(mine.map((m) => [m.rfqId, m]));
   return rows
     .map((r) => ({ ...r, match: !!r.categoryId && catIds.includes(r.categoryId), offer: sent.get(r.id) ?? null }))
@@ -106,6 +111,25 @@ export async function allCategories() {
 export async function getSupplierRow(id: string) {
   const [s] = await getDb().select().from(suppliers).where(eq(suppliers.id, id)).limit(1);
   return s;
+}
+
+/** All offers this supplier has sent, newest first. */
+export async function supplierOffers(supplierId: string) {
+  return getDb()
+    .select({
+      o: offers,
+      rfqRef: rfqs.ref,
+      rfqCommodity: rfqs.commodity,
+      listingTitle: listings.title,
+      offerThread: sql<string | null>`(select t.id from impexsphere.threads t where t.offer_id = ${offers.id})`,
+      quoteThread: sql<string | null>`(select t.id from impexsphere.threads t where t.enquiry_id = ${offers.enquiryId})`,
+    })
+    .from(offers)
+    .leftJoin(rfqs, eq(offers.rfqId, rfqs.id))
+    .leftJoin(enquiries, eq(offers.enquiryId, enquiries.id))
+    .leftJoin(listings, eq(enquiries.listingId, listings.id))
+    .where(eq(offers.supplierId, supplierId))
+    .orderBy(desc(offers.createdAt));
 }
 
 export { inArray };

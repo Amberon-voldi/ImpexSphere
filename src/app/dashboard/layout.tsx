@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import DashShell from "@/components/DashShell";
 import { requireSupplier } from "@/lib/auth";
+import { unreadCount } from "@/lib/messaging";
 
 export const metadata: Metadata = { title: { default: "Supplier dashboard", template: "%s · Supplier dashboard" }, robots: { index: false } };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireSupplier("/dashboard");
   const s = user.supplier;
+  const unread = await unreadCount(user).catch(() => 0);
   return (
     <DashShell
       id="sup"
@@ -18,6 +20,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         { href: "/dashboard/listings", label: "Listings", icon: "box" },
         { href: "/dashboard/requests", label: "Quote requests", icon: "doc" },
         { href: "/dashboard/rfqs", label: "Buying requests", icon: "bolt" },
+        { href: "/dashboard/offers", label: "My offers", icon: "compare" },
+        { href: "/messages", label: "Messages", icon: "sparkle", badge: unread },
         { href: "/dashboard/company", label: "Company profile", icon: "shield" },
         { href: "/account", label: "Account", icon: "star" },
       ]}

@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { enquiries, getDb, listings, rfqs, suppliers, type NewEnquiry } from "@/db";
 import { getCurrentUser } from "@/lib/auth";
+import { ensureEnquiryThread } from "@/lib/messaging";
 import { notify } from "@/lib/notify";
 import { clean, clientMeta, EMAIL_RE } from "@/lib/validate";
 
@@ -95,11 +96,13 @@ export async function POST(req: Request) {
       ...clientMeta(req),
     };
     const [row] = await db.insert(enquiries).values(record).returning({ id: enquiries.id });
+    let threadId: string | null = null;
+    if (kind === "listing_quote") threadId = await ensureEnquiryThread(row.id).catch((e) => (console.error(e), null));
 
     await notify(`${KINDS[kind]} — ${data.company}${context ? ` · ${context}` : data.commodity ? ` · ${data.commodity}` : ""}`, KINDS[kind], data, row.id).catch((err) =>
       console.error("Enquiry notification failed", err),
     );
-    return NextResponse.json({ ok: true, id: row.id });
+    return NextResponse.json({ ok: true, id: row.id, threadId: user ? threadId : null });
   } catch (err) {
     console.error("Failed to save enquiry", err);
     return NextResponse.json({ error: "We couldn't save your submission. Please try again shortly." }, { status: 503 });

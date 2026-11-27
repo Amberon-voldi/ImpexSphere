@@ -3,7 +3,7 @@
 import { AnimatePresence, motion, Reorder, useDragControls } from "motion/react";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
-import { quickUpdateListing, saveListing, sendRfqOffer, updateCompany } from "@/app/actions/supplier";
+import { quickUpdateListing, saveListing, updateCompany } from "@/app/actions/supplier";
 import { incoterms as INCOTERMS } from "@/lib/content";
 import { inr, qty } from "@/lib/format";
 import Icon from "./Icon";
@@ -333,32 +333,6 @@ export function CompanyForm({ c }: { c: { name: string; city: string; state: str
       </div>
       <FormMessage state={state} />
       <SubmitButton pendingText="Saving…">Save company profile</SubmitButton>
-    </form>
-  );
-}
-
-export function OfferForm({ refId, defaultLocation }: { refId: string; defaultLocation: string }) {
-  const [state, action] = useActionState(sendRfqOffer, undefined);
-  if (state?.ok) return <FormMessage state={state} />;
-  return (
-    <form action={action} className="form" style={{ marginTop: 14 }}>
-      <input type="hidden" name="ref" value={refId} />
-      <div className="form-row">
-        <div className="field">
-          <label htmlFor={`o-loc-${refId}`}>Dispatch location</label>
-          <input id={`o-loc-${refId}`} name="location" required defaultValue={defaultLocation} />
-        </div>
-        <div className="field">
-          <label htmlFor={`o-qty-${refId}`}>Quantity you can supply <span className="opt">(optional)</span></label>
-          <input id={`o-qty-${refId}`} name="quantity" />
-        </div>
-      </div>
-      <div className="field">
-        <label htmlFor={`o-msg-${refId}`}>Your offer</label>
-        <textarea id={`o-msg-${refId}`} name="message" required placeholder="Price, grade, packing, lead time, certifications…" />
-      </div>
-      <FormMessage state={state} />
-      <SubmitButton className="btn btn-gold" pendingText="Sending…">Send offer</SubmitButton>
     </form>
   );
 }

@@ -6,6 +6,7 @@ import {
   jsonb,
   numeric,
   pgSchema,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex,
@@ -26,6 +27,8 @@ export const enquiryKind = impex.enum("enquiry_kind", ["listing_quote", "rfq_off
 export const enquiryStatus = impex.enum("enquiry_status", ["new", "in_progress", "closed", "spam"]);
 export const supplierStatus = impex.enum("supplier_status", ["pending", "approved", "suspended"]);
 export const userRole = impex.enum("user_role", ["buyer", "supplier", "admin"]);
+export const offerStatus = impex.enum("offer_status", ["submitted", "shared", "accepted", "declined", "withdrawn", "rejected"]);
+export const authorRole = impex.enum("author_role", ["buyer", "supplier", "admin", "system"]);
 export const authTokenKind = impex.enum("auth_token_kind", ["verify_email", "reset_password"]);
 
 const timestamps = {
@@ -264,6 +267,108 @@ export const authAttempts = impex.table(
   (t) => [index("auth_attempts_lookup_idx").on(t.action, t.key, t.createdAt)],
 );
 
+/**
+ * A supplier's priced offer: either on a buying request (rfqId) or in reply to
+ * a quote request on one of their listings (enquiryId). Buyers only see it
+ * once the trade desk has shared it.
+ */
+export const offers = impex.table(
+  "offers",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ref: text("ref").notNull().unique(),
+    rfqId: uuid("rfq_id").references(() => rfqs.id, { onDelete: "cascade" }),
+    enquiryId: uuid("enquiry_id").references(() => enquiries.id, { onDelete: "cascade" }),
+    supplierId: uuid("supplier_id")
+      .notNull()
+      .references(() => suppliers.id, { onDelete: "cascade" }),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    price: numeric("price", { precision: 12, scale: 2, mode: "number" }).notNull(),
+    /** USD or INR */
+    currency: text("currency").notNull(),
+    /** MT or kg */
+    unit: text("unit").notNull(),
+    quantity: text("quantity").notNull(),
+    incoterm: text("incoterm"),
+    port: text("port"),
+    leadTimeDays: integer("lead_time_days"),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    notes: text("notes"),
+    status: offerStatus("status").notNull().default("submitted"),
+    /** Buyer's reason when declining. */
+    buyerNote: text("buyer_note"),
+    adminNote: text("admin_note"),
+    ...timestamps,
+  },
+  (t) => [
+    index("offers_rfq_idx").on(t.rfqId),
+    index("offers_enquiry_idx").on(t.enquiryId),
+    index("offers_supplier_idx").on(t.supplierId),
+    index("offers_status_idx").on(t.status),
+  ],
+);
+
+/**
+ * A conversation between a buyer, a supplier and the trade desk, about either
+ * a quote request on a listing (enquiryId) or an offer on a buying request (offerId).
+ */
+export const threads = impex.table(
+  "threads",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    enquiryId: uuid("enquiry_id")
+      .unique()
+      .references(() => enquiries.id, { onDelete: "cascade" }),
+    offerId: uuid("offer_id")
+      .unique()
+      .references(() => offers.id, { onDelete: "cascade" }),
+    buyerUserId: uuid("buyer_user_id").references(() => users.id, { onDelete: "set null" }),
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    subject: text("subject").notNull(),
+    lastMessageAt: timestamp("last_message_at", { withTimezone: true }).notNull().defaultNow(),
+    /** When any admin last read it (the trade desk shares one read marker). */
+    deskReadAt: timestamp("desk_read_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("threads_buyer_idx").on(t.buyerUserId),
+    index("threads_supplier_idx").on(t.supplierId),
+    index("threads_last_idx").on(t.lastMessageAt),
+  ],
+);
+
+export const messages = impex.table(
+  "messages",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    authorUserId: uuid("author_user_id").references(() => users.id, { onDelete: "set null" }),
+    authorRole: authorRole("author_role").notNull(),
+    body: text("body").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("messages_thread_idx").on(t.threadId, t.createdAt)],
+);
+
+/** Per-user read marker for buyers and suppliers. */
+export const threadReads = impex.table(
+  "thread_reads",
+  {
+    threadId: uuid("thread_id")
+      .notNull()
+      .references(() => threads.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    lastReadAt: timestamp("last_read_at", { withTimezone: true }).notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.threadId, t.userId] })],
+);
+
+export type Offer = typeof offers.$inferSelect;
+export type Thread = typeof threads.$inferSelect;
 export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;

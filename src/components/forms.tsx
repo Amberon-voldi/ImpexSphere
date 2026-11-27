@@ -100,6 +100,7 @@ export function LeadForm({
   submitLabel: string;
 }) {
   const [state, setState] = useState<"idle" | "sending" | "ok">("idle");
+  const [threadId, setThreadId] = useState<string | null>(null);
   const [error, setError] = useState("");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
@@ -115,6 +116,7 @@ export function LeadForm({
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(body.error || "Something went wrong. Please try again.");
+      setThreadId(body.threadId ?? null);
       setState("ok");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
@@ -122,7 +124,17 @@ export function LeadForm({
     }
   }
 
-  if (state === "ok") return <Success title={thanks[kind][0]}>{thanks[kind][1]}</Success>;
+  if (state === "ok")
+    return (
+      <>
+        <Success title={thanks[kind][0]}>{thanks[kind][1]}</Success>
+        {threadId && (
+          <a href={`/messages/${threadId}`} className="btn btn-block" style={{ marginTop: 4 }}>
+            Open the conversation <Icon name="arrow" size={16} className="arrow" />
+          </a>
+        )}
+      </>
+    );
 
   return (
     <form className="form" onSubmit={onSubmit}>

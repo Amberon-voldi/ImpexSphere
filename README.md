@@ -27,6 +27,19 @@ A dark, animated B2B marketplace built with Next.js (App Router), TypeScript and
 | `/dashboard` | Suppliers | Overview, **listings** (create, edit, inline price/stock/status), quote requests on their listings (no buyer contact details), open buying requests with an offer form, company profile |
 | `/admin` | Admins | Overview, **enquiries** (full contact details, status, internal notes), **buying requests** (publish/close/spam), **suppliers** (approve/suspend, verification level), **listings** (status, featured), **users** (role, disable) |
 
+| `/messages`, `/messages/[id]` | Signed in | Inbox and live conversations between buyer, supplier and trade desk |
+| `/account/requests/[ref]` | Buyers | A buying request with its shared offers side by side (normalised to US$/MT), accept / decline |
+| `/dashboard/offers` | Suppliers | Every offer sent and its status |
+| `/admin/offers` | Admins | Review supplier offers and share them with buyers (or not) |
+
+**Offers and messaging**
+
+- Suppliers send priced offers (price in US$ or ₹ per MT or kg, quantity, Incoterm, port, dispatch time, validity, notes) on open buying requests, or as a quote in reply to a quote request on one of their listings.
+- Every offer starts as `submitted`; the trade desk **shares** it before the buyer sees it. Buyers can then accept or decline; accepting closes the buying request and tells the desk to send the proforma.
+- Each quote request and each offer on a buying request has a conversation. Suppliers see the buyer only as "Buyer · destination"; contact details stay with the trade desk, which sees everything.
+- New messages appear live (the page checks every few seconds) and the header shows an unread count. Participants get one email per burst of messages (when Resend is configured), and the desk is notified via `ENQUIRY_TO_EMAIL`.
+- When a buyer confirms their email, anything they sent with that address while signed out (buying requests, quote requests and their conversations) is attached to their account.
+
 - Admins: anyone who signs up with an email listed in `ADMIN_EMAILS` gets the admin role.
 - Only **approved** suppliers and their listings appear on the public marketplace.
 - Passwords are hashed with scrypt; sessions are random tokens in an httpOnly cookie, stored hashed in `impexsphere.sessions` (30 days). Sign-in, sign-up and password reset are rate-limited.
@@ -80,6 +93,8 @@ Everything ImpexSphere creates lives in its own Postgres schema, **`impexsphere`
 | `rfqs` | Buying requests. New ones are `pending` and only appear publicly once set to `open` |
 | `enquiries` | Quote requests, offers on RFQs, supplier applications, contact messages (`status`: `new` / `in_progress` / `closed` / `spam`), with the submitting account and an internal admin note |
 | `users` | Accounts: email, scrypt password hash, role (`buyer` / `supplier` / `admin`), linked supplier company |
+| `offers` | Supplier offers on buying requests or quote requests, with status `submitted` / `shared` / `accepted` / `declined` / `withdrawn` / `rejected` |
+| `threads`, `messages`, `thread_reads` | Conversations, their messages (buyer / supplier / admin / system), and per-user read markers |
 | `sessions`, `auth_tokens`, `auth_attempts` | Sign-in sessions, email confirmation / password reset tokens (hashed), and rate-limit records |
 
 ### Sample data

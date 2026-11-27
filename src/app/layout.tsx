@@ -5,6 +5,7 @@ import Footer from "@/components/Footer";
 import Providers from "@/components/Providers";
 import { Ambient, CursorGlow, ScrollProgress } from "@/components/fx";
 import { getCurrentUser } from "@/lib/auth";
+import { unreadCount } from "@/lib/messaging";
 import { site } from "@/lib/content";
 import "./globals.css";
 
@@ -23,7 +24,8 @@ export const viewport: Viewport = { themeColor: "#050a17" };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const u = await getCurrentUser();
-  const headerUser = u ? { name: u.name, email: u.email, role: u.role, hasSupplier: !!u.supplier } : null;
+  const unread = u ? await unreadCount(u).catch(() => 0) : 0;
+  const headerUser = u ? { name: u.name, email: u.email, role: u.role, hasSupplier: !!u.supplier, unread } : null;
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable} ${mono.variable}`}>
       <body>

@@ -10,6 +10,7 @@ import { Parallax, Reveal, Stagger, StaggerItem } from "@/components/fx";
 import { ago, levelLabel, pct, qty } from "@/lib/format";
 import { cache } from "react";
 import { getListing as load } from "@/lib/queries";
+import { getCurrentUser } from "@/lib/auth";
 
 // One load (and one view count) per request, shared by the metadata and the page.
 const getListing = cache(load);
@@ -149,7 +150,7 @@ export default async function ListingPage({ params }: { params: Promise<{ slug: 
               </Reveal>
             </div>
 
-            <QuotePanel item={item} />
+            <QuotePanel item={item} signedIn={!!(await getCurrentUser())} />
           </div>
         </div>
       </section>

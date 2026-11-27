@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { StatusPill } from "@/components/ui";
 import { requireSupplier } from "@/lib/auth";
 import { ago, inr } from "@/lib/format";
 import { supplierQuoteRequests } from "@/lib/supplierData";
@@ -17,7 +16,7 @@ export default async function RequestsPage() {
           <span className="eyebrow">Quote requests</span>
           <h1 className="dash-h1">Buyers asking about your listings</h1>
           <p className="muted" style={{ margin: 0 }}>
-            The ImpexSphere trade desk handles each request and will contact you to confirm price and availability. Buyer contact details stay with the trade desk.
+            Reply with a firm quote and chat with the buyer. The ImpexSphere trade desk reviews quotes before the buyer sees them, and buyer contact details stay with the trade desk.
           </p>
         </div>
       </div>
@@ -25,7 +24,7 @@ export default async function RequestsPage() {
         <div className="card table-wrap">
           <table className="table">
             <thead>
-              <tr><th>Listing</th><th>Quantity</th><th>Destination</th><th>Notes</th><th>Status</th><th>Received</th></tr>
+              <tr><th>Listing</th><th>Quantity</th><th>Destination</th><th>Notes</th><th>Quotes</th><th>Received</th><th /></tr>
             </thead>
             <tbody>
               {rows.map((q) => (
@@ -37,8 +36,13 @@ export default async function RequestsPage() {
                   <td>{q.quantity ?? "—"}</td>
                   <td>{q.country ?? "—"}{q.incoterm ? ` · ${q.incoterm}` : ""}</td>
                   <td className="muted" style={{ maxWidth: 280 }}>{q.message ?? "—"}</td>
-                  <td><StatusPill status={q.status} /></td>
+                  <td>{q.quotes ? <span className="badge badge-verified">{q.quotes} sent</span> : <span className="muted">—</span>}</td>
                   <td className="muted">{ago(q.createdAt.toISOString())}</td>
+                  <td>
+                    <Link href={`/messages/quote/${q.id}`} className={`btn btn-sm${q.quotes ? "" : " btn-gold"}`}>
+                      {q.quotes ? "Conversation" : "Reply with quote"}
+                    </Link>
+                  </td>
                 </tr>
               ))}
             </tbody>
