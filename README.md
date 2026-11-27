@@ -59,7 +59,9 @@ npm run db:seed              # optional: categories + sample data
 npm run dev                  # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`, with `RDS_DATABASE_URL` set, and `npm run db:migrate` run on each deploy.
+Production: `npm run build && npm start`, with `RDS_DATABASE_URL` set. Pending migrations are applied automatically when the server starts (`src/instrumentation.ts`), because the production database isn't reachable from outside.
+
+**Deploy check:** `GET /api/health` reports whether the database is configured and reachable, how many migrations are applied versus in the build, the result of the startup migration, and which settings are present (never their values). It returns 200 when healthy, 503 otherwise.
 
 ## Database (PostgreSQL)
 
