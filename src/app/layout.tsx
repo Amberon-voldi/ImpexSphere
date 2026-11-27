@@ -4,6 +4,7 @@ import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import Providers from "@/components/Providers";
 import { Ambient, CursorGlow, ScrollProgress } from "@/components/fx";
+import { getCurrentUser } from "@/lib/auth";
 import { site } from "@/lib/content";
 import "./globals.css";
 
@@ -20,7 +21,9 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = { themeColor: "#050a17" };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const u = await getCurrentUser();
+  const headerUser = u ? { name: u.name, email: u.email, role: u.role, hasSupplier: !!u.supplier } : null;
   return (
     <html lang="en" className={`${inter.variable} ${fraunces.variable} ${mono.variable}`}>
       <body>
@@ -28,7 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Ambient />
           <CursorGlow />
           <ScrollProgress />
-          <Header />
+          <Header user={headerUser} />
           <main>{children}</main>
           <Footer />
         </Providers>

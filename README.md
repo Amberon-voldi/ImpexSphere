@@ -18,6 +18,20 @@ A dark, animated B2B marketplace built with Next.js (App Router), TypeScript and
 | `/about`, `/contact` | Company story and **contact form** |
 | `/api/enquiry`, `/api/rfq`, `/api/search` | Form handlers (save to Postgres, optional email) and the ⌘K search index |
 
+### Accounts, dashboards and admin
+
+| Route | Who | Purpose |
+| --- | --- | --- |
+| `/signup`, `/login`, `/forgot-password`, `/reset-password` | Everyone | Email + password accounts. Buyers or suppliers; a supplier sign-up also creates a company that starts as **pending** |
+| `/account` | Signed in | Profile, password, email confirmation; buyers see their buying requests and quote requests |
+| `/dashboard` | Suppliers | Overview, **listings** (create, edit, inline price/stock/status), quote requests on their listings (no buyer contact details), open buying requests with an offer form, company profile |
+| `/admin` | Admins | Overview, **enquiries** (full contact details, status, internal notes), **buying requests** (publish/close/spam), **suppliers** (approve/suspend, verification level), **listings** (status, featured), **users** (role, disable) |
+
+- Admins: anyone who signs up with an email listed in `ADMIN_EMAILS` gets the admin role.
+- Only **approved** suppliers and their listings appear on the public marketplace.
+- Passwords are hashed with scrypt; sessions are random tokens in an httpOnly cookie, stored hashed in `impexsphere.sessions` (30 days). Sign-in, sign-up and password reset are rate-limited.
+- Email confirmation and password reset emails need `RESEND_API_KEY`; set `SITE_URL` so links point to the right domain.
+
 Site-wide: ⌘K / Ctrl+K (or `/`) command palette, a shortlist with side-by-side compare (saved in the browser), page transitions, scroll-driven animations. Animations respect `prefers-reduced-motion`.
 
 Fixed copy (verticals, steps, phases, destinations) lives in `src/lib/content.ts`. Marketplace data comes from the database (`src/lib/queries.ts`). Indicative USD prices use the rate in `src/lib/format.ts` (`USD_INR`).
@@ -60,11 +74,13 @@ Everything ImpexSphere creates lives in its own Postgres schema, **`impexsphere`
 | Table | What |
 | --- | --- |
 | `categories` | Commodity categories, with a colour and art shape |
-| `suppliers` | Supplier companies, verification level (`listed` / `verified` / `trusted`), stats |
+| `suppliers` | Supplier companies: `status` (`pending` / `approved` / `suspended`) and verification level (`listed` / `verified` / `trusted`) |
 | `listings` | Offers: price (₹/kg), MOQ, stock, specs, incoterms, status (`draft` / `active` / `paused` / `sold_out`) |
 | `listing_prices` | Daily price history per listing (charts and sparklines) |
 | `rfqs` | Buying requests. New ones are `pending` and only appear publicly once set to `open` |
-| `enquiries` | Quote requests, offers on RFQs, supplier applications, contact messages (`status`: `new` / `in_progress` / `closed` / `spam`) |
+| `enquiries` | Quote requests, offers on RFQs, supplier applications, contact messages (`status`: `new` / `in_progress` / `closed` / `spam`), with the submitting account and an internal admin note |
+| `users` | Accounts: email, scrypt password hash, role (`buyer` / `supplier` / `admin`), linked supplier company |
+| `sessions`, `auth_tokens`, `auth_attempts` | Sign-in sessions, email confirmation / password reset tokens (hashed), and rate-limit records |
 
 ### Sample data
 

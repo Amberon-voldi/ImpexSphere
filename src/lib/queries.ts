@@ -21,6 +21,8 @@ async function sparklines(ids: string[], days = 30) {
   return map;
 }
 
+const approvedSupplier = sql`${listings.supplierId} in (select id from impexsphere.suppliers where status = 'approved')`;
+
 const cardSelect = {
   id: listings.id,
   slug: listings.slug,
@@ -77,7 +79,7 @@ function baseListingQuery(...extra: SQL[]) {
     .from(listings)
     .innerJoin(suppliers, eq(listings.supplierId, suppliers.id))
     .innerJoin(categories, eq(listings.categoryId, categories.id))
-    .where(and(eq(listings.status, "active"), ...extra))
+    .where(and(eq(listings.status, "active"), eq(suppliers.status, "approved"), ...extra))
     .orderBy(desc(listings.featured), desc(listings.updatedAt));
 }
 
@@ -97,7 +99,7 @@ export async function getCategories(): Promise<CategoryInfo[]> {
       minPrice: sql<number | null>`min(${listings.priceInrKg})::float`,
     })
     .from(categories)
-    .leftJoin(listings, and(eq(listings.categoryId, categories.id), eq(listings.status, "active")))
+    .leftJoin(listings, and(eq(listings.categoryId, categories.id), eq(listings.status, "active"), approvedSupplier))
     .groupBy(categories.id)
     .orderBy(asc(categories.sortOrder));
   return rows;
@@ -126,7 +128,7 @@ export async function getListing(slug: string) {
     .from(listings)
     .innerJoin(suppliers, eq(listings.supplierId, suppliers.id))
     .innerJoin(categories, eq(listings.categoryId, categories.id))
-    .where(and(eq(listings.slug, slug), ne(listings.status, "draft")))
+    .where(and(eq(listings.slug, slug), ne(listings.status, "draft"), eq(suppliers.status, "approved")))
     .limit(1);
   if (!row) return null;
 
@@ -177,13 +179,18 @@ export async function getSuppliers(): Promise<SupplierCard[]> {
     .from(suppliers)
     .leftJoin(listings, and(eq(listings.supplierId, suppliers.id), eq(listings.status, "active")))
     .leftJoin(categories, eq(listings.categoryId, categories.id))
+    .where(eq(suppliers.status, "approved"))
     .groupBy(suppliers.id)
     .orderBy(sql`case ${suppliers.level} when 'trusted' then 0 when 'verified' then 1 else 2 end`, desc(suppliers.completedTrades));
   return rows;
 }
 
 export async function getSupplier(slug: string) {
-  const [s] = await getDb().select().from(suppliers).where(eq(suppliers.slug, slug)).limit(1);
+  const [s] = await getDb()
+    .select()
+    .from(suppliers)
+    .where(and(eq(suppliers.slug, slug), eq(suppliers.status, "approved")))
+    .limit(1);
   if (!s) return null;
   const cards = await toCards(await baseListingQuery(eq(listings.supplierId, s.id)));
   return { ...s, listings: cards };
@@ -221,11 +228,13 @@ export async function getStats() {
     states: number;
   }>(sql`
     select
-      (select count(*)::int from impexsphere.listings where status = 'active') as listings,
-      (select count(*)::int from impexsphere.suppliers) as suppliers,
+      (select count(*)::int from impexsphere.listings l join impexsphere.suppliers s on s.id = l.supplier_id
+         where l.status = 'active' and s.status = 'approved') as listings,
+      (select count(*)::int from impexsphere.suppliers where status = 'approved') as suppliers,
       (select count(*)::int from impexsphere.rfqs where status = 'open') as rfqs,
-      (select coalesce(sum(stock_kg), 0)::float / 1000 from impexsphere.listings where status = 'active') as stock,
-      (select count(distinct state)::int from impexsphere.suppliers) as states
+      (select coalesce(sum(l.stock_kg), 0)::float / 1000 from impexsphere.listings l join impexsphere.suppliers s on s.id = l.supplier_id
+         where l.status = 'active' and s.status = 'approved') as stock,
+      (select count(distinct state)::int from impexsphere.suppliers where status = 'approved') as states
   `);
   return r;
 }

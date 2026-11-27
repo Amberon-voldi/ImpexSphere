@@ -24,6 +24,9 @@ export const listingStatus = impex.enum("listing_status", ["draft", "active", "p
 export const rfqStatus = impex.enum("rfq_status", ["pending", "open", "closed", "spam"]);
 export const enquiryKind = impex.enum("enquiry_kind", ["listing_quote", "rfq_offer", "supplier_application", "contact"]);
 export const enquiryStatus = impex.enum("enquiry_status", ["new", "in_progress", "closed", "spam"]);
+export const supplierStatus = impex.enum("supplier_status", ["pending", "approved", "suspended"]);
+export const userRole = impex.enum("user_role", ["buyer", "supplier", "admin"]);
+export const authTokenKind = impex.enum("auth_token_kind", ["verify_email", "reset_password"]);
 
 const timestamps = {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -55,6 +58,8 @@ export const suppliers = impex.table(
     state: text("state").notNull(),
     about: text("about").notNull().default(""),
     level: verificationLevel("level").notNull().default("listed"),
+    /** Only `approved` suppliers (and their listings) are shown publicly. */
+    status: supplierStatus("status").notNull().default("approved"),
     sinceYear: integer("since_year"),
     rating: numeric("rating", { precision: 2, scale: 1, mode: "number" }),
     responseHours: integer("response_hours"),
@@ -66,7 +71,7 @@ export const suppliers = impex.table(
     isSample: boolean("is_sample").notNull().default(false),
     ...timestamps,
   },
-  (t) => [index("suppliers_level_idx").on(t.level)],
+  (t) => [index("suppliers_level_idx").on(t.level), index("suppliers_status_idx").on(t.status)],
 );
 
 /** A supplier's lot or standing offer for a commodity. */
@@ -144,6 +149,7 @@ export const rfqs = impex.table(
     buyerCompany: text("buyer_company").notNull(),
     buyerEmail: text("buyer_email").notNull(),
     buyerPhone: text("buyer_phone"),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
     isSample: boolean("is_sample").notNull().default(false),
     ip: text("ip"),
     userAgent: text("user_agent"),
@@ -161,6 +167,12 @@ export const enquiries = impex.table(
     status: enquiryStatus("status").notNull().default("new"),
     listingId: uuid("listing_id").references(() => listings.id, { onDelete: "set null" }),
     rfqId: uuid("rfq_id").references(() => rfqs.id, { onDelete: "set null" }),
+    /** Account that submitted it, when signed in. */
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    /** Supplier company that sent it (RFQ offers from signed-in suppliers). */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    /** Internal notes from the trade desk. Never shown to buyers or suppliers. */
+    adminNote: text("admin_note"),
 
     name: text("name").notNull(),
     company: text("company").notNull(),
@@ -187,6 +199,72 @@ export const enquiries = impex.table(
   ],
 );
 
+/** Accounts. Admin role is granted to emails listed in ADMIN_EMAILS at sign-up. */
+export const users = impex.table(
+  "users",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    email: text("email").notNull().unique(),
+    passwordHash: text("password_hash").notNull(),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    role: userRole("role").notNull().default("buyer"),
+    /** Supplier company this account manages (supplier role). */
+    supplierId: uuid("supplier_id").references(() => suppliers.id, { onDelete: "set null" }),
+    emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+    disabled: boolean("disabled").notNull().default(false),
+    lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+    ...timestamps,
+  },
+  (t) => [index("users_role_idx").on(t.role), index("users_supplier_idx").on(t.supplierId)],
+);
+
+/** Sign-in sessions. Only a SHA-256 hash of the cookie token is stored. */
+export const sessions = impex.table(
+  "sessions",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    ip: text("ip"),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId), index("sessions_expires_idx").on(t.expiresAt)],
+);
+
+/** One-time email verification and password reset tokens (hashed). */
+export const authTokens = impex.table(
+  "auth_tokens",
+  {
+    id: text("id").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    kind: authTokenKind("kind").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_tokens_user_idx").on(t.userId)],
+);
+
+/** Sign-in / sign-up attempts, for rate limiting. */
+export const authAttempts = impex.table(
+  "auth_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    action: text("action").notNull(),
+    key: text("key").notNull(),
+    success: boolean("success").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("auth_attempts_lookup_idx").on(t.action, t.key, t.createdAt)],
+);
+
+export type User = typeof users.$inferSelect;
 export type Category = typeof categories.$inferSelect;
 export type Supplier = typeof suppliers.$inferSelect;
 export type Listing = typeof listings.$inferSelect;

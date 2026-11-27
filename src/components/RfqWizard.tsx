@@ -10,10 +10,18 @@ import { Success } from "./forms";
 type Data = Record<string, string>;
 const STEPS = ["What you need", "Quantity & delivery", "Your details", "Review"];
 
-export default function RfqWizard({ categories, initialCommodity = "" }: { categories: CategoryInfo[]; initialCommodity?: string }) {
+export default function RfqWizard({
+  categories,
+  initialCommodity = "",
+  contact,
+}: {
+  categories: CategoryInfo[];
+  initialCommodity?: string;
+  contact?: { name: string; company: string; email: string; phone: string };
+}) {
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
-  const [d, setD] = useState<Data>({ commodity: initialCommodity, incoterm: "CIF" });
+  const [d, setD] = useState<Data>({ commodity: initialCommodity, incoterm: "CIF", ...contact });
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [ref, setRef] = useState<string | null>(null);

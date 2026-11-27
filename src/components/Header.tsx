@@ -3,7 +3,8 @@
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { signOut } from "@/app/actions/auth";
 import { nav } from "@/lib/content";
 import Icon from "./Icon";
 import { useApp } from "./Providers";
@@ -21,7 +22,63 @@ export function Logo() {
   );
 }
 
-export default function Header() {
+export type HeaderUser = { name: string; email: string; role: "buyer" | "supplier" | "admin"; hasSupplier: boolean } | null;
+
+function AccountMenu({ user }: { user: NonNullable<HeaderUser> }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && setOpen(false);
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", esc);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", esc);
+    };
+  }, [open]);
+  const initials = user.name.split(" ").map((w) => w[0]).slice(0, 2).join("").toUpperCase();
+  const links = [
+    ...(user.role === "admin" ? [{ href: "/admin", label: "Admin console" }] : []),
+    ...(user.hasSupplier ? [{ href: "/dashboard", label: "Supplier dashboard" }, { href: "/dashboard/listings/new", label: "New listing" }] : []),
+    { href: "/account", label: "Account & requests" },
+  ];
+  return (
+    <div className="acct" ref={ref}>
+      <button className="avatar-btn" onClick={() => setOpen(!open)} aria-expanded={open} aria-haspopup="menu" aria-label="Account menu">
+        {initials}
+      </button>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            className="acct-menu"
+            role="menu"
+            initial={{ opacity: 0, y: -8, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -6, scale: 0.97 }}
+            transition={{ type: "spring", stiffness: 420, damping: 30 }}
+          >
+            <div className="acct-who">
+              <b>{user.name}</b>
+              <span>{user.email}</span>
+            </div>
+            {links.map((l) => (
+              <Link key={l.href} href={l.href} role="menuitem" onClick={() => setOpen(false)}>
+                {l.label}
+              </Link>
+            ))}
+            <form action={signOut}>
+              <button type="submit" role="menuitem">Sign out</button>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+export default function Header({ user }: { user: HeaderUser }) {
   const pathname = usePathname();
   const { items, setDrawer, setPalette } = useApp();
   const [open, setOpen] = useState(false);
@@ -79,9 +136,18 @@ export default function Header() {
                 )}
               </AnimatePresence>
             </button>
-            <Link href="/rfq#post" className="btn btn-gold btn-sm hide-sm">
-              Post RFQ
-            </Link>
+            {user ? (
+              <AccountMenu user={user} />
+            ) : (
+              <>
+                <Link href="/login" className="btn btn-sm btn-ghost hide-sm">
+                  Sign in
+                </Link>
+                <Link href="/signup" className="btn btn-gold btn-sm hide-sm">
+                  Join free
+                </Link>
+              </>
+            )}
             <button className="icon-btn menu-toggle" aria-expanded={open} aria-controls="mobile-nav" aria-label="Menu" onClick={() => setOpen((o) => !o)}>
               <Icon name={open ? "close" : "menu"} />
             </button>
@@ -98,7 +164,20 @@ export default function Header() {
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             aria-label="Mobile"
           >
-            {[...nav, { href: "/rfq#post", label: "Post a buying request" }, { href: "/contact", label: "Contact" }].map((item, i) => (
+            {[
+              ...nav,
+              { href: "/rfq#post", label: "Post a buying request" },
+              ...(user
+                ? [
+                    ...(user.role === "admin" ? [{ href: "/admin", label: "Admin console" }] : []),
+                    ...(user.hasSupplier ? [{ href: "/dashboard", label: "Supplier dashboard" }] : []),
+                    { href: "/account", label: "Your account" },
+                  ]
+                : [
+                    { href: "/login", label: "Sign in" },
+                    { href: "/signup", label: "Create an account" },
+                  ]),
+            ].map((item, i) => (
               <motion.div key={item.href} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.04 * i }}>
                 <Link href={item.href} onClick={() => setOpen(false)} style={{ display: "block" }}>
                   {item.label}

@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
 import { categories, getDb, rfqs } from "@/db";
+import { getCurrentUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { clean, clientMeta, EMAIL_RE } from "@/lib/validate";
 
@@ -40,6 +41,7 @@ export async function POST(req: Request) {
       categoryId = c?.id ?? null;
     }
 
+    const user = await getCurrentUser();
     let row: { id: string; ref: string } | undefined;
     for (let attempt = 0; attempt < 4 && !row; attempt++) {
       [row] = await db
@@ -58,6 +60,7 @@ export async function POST(req: Request) {
           buyerCompany: data.company!,
           buyerEmail: data.email!.toLowerCase(),
           buyerPhone: data.phone,
+          userId: user?.id ?? null,
           ...clientMeta(req),
         })
         .onConflictDoNothing({ target: rfqs.ref })

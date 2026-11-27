@@ -3,6 +3,7 @@ import Link from "next/link";
 import RfqItem from "@/components/RfqItem";
 import RfqWizard from "@/components/RfqWizard";
 import { Reveal, SplitWords, Stagger, StaggerItem } from "@/components/fx";
+import { getCurrentUser } from "@/lib/auth";
 import { getCategories, getOpenRfqs, safe } from "@/lib/queries";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export const metadata: Metadata = {
 
 export default async function RfqPage({ searchParams }: { searchParams: Promise<{ commodity?: string }> }) {
   const { commodity } = await searchParams;
-  const [r, c] = await Promise.all([safe(() => getOpenRfqs(), []), safe(getCategories, [])]);
+  const [r, c, user] = await Promise.all([safe(() => getOpenRfqs(), []), safe(getCategories, []), getCurrentUser()]);
+  const contact = user ? { name: user.name, company: user.supplier?.name ?? "", email: user.email, phone: user.phone ?? "" } : undefined;
   return (
     <>
       <section className="page-hero">
@@ -52,7 +54,7 @@ export default async function RfqPage({ searchParams }: { searchParams: Promise<
           </div>
           <div className="rfq-sticky" id="post" style={{ scrollMarginTop: 100 }}>
             <Reveal>
-              <RfqWizard categories={c.data} initialCommodity={commodity?.slice(0, 300)} />
+              <RfqWizard categories={c.data} initialCommodity={commodity?.slice(0, 300)} contact={contact} />
             </Reveal>
           </div>
         </div>

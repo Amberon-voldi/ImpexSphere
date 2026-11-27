@@ -44,8 +44,8 @@ export default async function SellPage() {
               List your spices and commodities on ImpexSphere. Whether you export already or have never shipped a
               container, we&apos;ll get your goods in front of serious buyers.
             </p>
-            <Link href="#apply" className="btn btn-gold btn-lg" style={{ marginTop: 10 }}>
-              Apply to list <Icon name="arrow" size={16} className="arrow" />
+            <Link href="/signup?role=supplier" className="btn btn-gold btn-lg" style={{ marginTop: 10 }}>
+              Start selling <Icon name="arrow" size={16} className="arrow" />
             </Link>
           </Reveal>
         </div>
@@ -84,24 +84,37 @@ export default async function SellPage() {
           </Reveal>
           <Reveal delay={0.1}>
             <div className="card panel">
-              <h3 style={{ fontSize: "1.4rem" }}>Apply to list</h3>
-              <p className="muted" style={{ fontSize: "0.92rem" }}>Takes two minutes. Our team will reach out to start verification.</p>
-              <LeadForm kind="supplier_application" submitLabel="Submit application">
-                <ContactFields />
-                <div className="form-row">
-                  <Field name="commodity" label="Main commodity" options={[...cats.map((c) => c.name), "Other"]} />
-                  <Field name="location" label="Location (city, state)" placeholder="e.g. Erode, Tamil Nadu" />
-                </div>
-                <div className="form-row">
-                  <Field name="capacity" label="Monthly capacity" placeholder="e.g. 200 MT" />
-                  <Field
-                    name="service"
-                    label="I'm looking for"
-                    options={["Export enablement (no licence)", "Logistics & trade support", "Marketplace listing only"]}
-                  />
-                </div>
-                <Field name="message" label="Anything else" optional textarea placeholder="Grades, certifications, current markets…" />
-              </LeadForm>
+              <h3 style={{ fontSize: "1.4rem" }}>Create your supplier account</h3>
+              <p className="muted" style={{ fontSize: "0.92rem" }}>
+                Set up your company profile and start adding listings right away. They go live on the marketplace once
+                our team has verified you.
+              </p>
+              <ul className="checklist" style={{ margin: "18px 0 24px" }}>
+                <li>Manage prices and stock from your dashboard</li>
+                <li>See quote requests on your listings</li>
+                <li>Send offers on importers&apos; buying requests</li>
+              </ul>
+              <Link href="/signup?role=supplier" className="btn btn-gold btn-lg btn-block">
+                Create supplier account <Icon name="arrow" size={16} className="arrow" />
+              </Link>
+              <details className="details" style={{ marginTop: 18 }}>
+                <summary>Prefer to talk to us first?</summary>
+                <LeadForm kind="supplier_application" submitLabel="Send details">
+                  <ContactFields />
+                  <div className="form-row">
+                    <Field name="commodity" label="Main commodity" options={[...cats.map((c) => c.name), "Other"]} />
+                    <Field name="location" label="Location (city, state)" placeholder="e.g. Erode, Tamil Nadu" />
+                  </div>
+                  <div className="form-row">
+                    <Field name="capacity" label="Monthly capacity" placeholder="e.g. 200 MT" />
+                    <Field
+                      name="service"
+                      label="I'm looking for"
+                      options={["Export enablement (no licence)", "Logistics & trade support", "Marketplace listing only"]}
+                    />
+                  </div>
+                </LeadForm>
+              </details>
             </div>
           </Reveal>
         </div>

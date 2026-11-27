@@ -1,6 +1,7 @@
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { NextResponse } from "next/server";
-import { enquiries, getDb, listings, rfqs, type NewEnquiry } from "@/db";
+import { enquiries, getDb, listings, rfqs, suppliers, type NewEnquiry } from "@/db";
+import { getCurrentUser } from "@/lib/auth";
 import { notify } from "@/lib/notify";
 import { clean, clientMeta, EMAIL_RE } from "@/lib/validate";
 
@@ -49,22 +50,34 @@ export async function POST(req: Request) {
   let context = "";
   try {
     if (kind === "listing_quote" && typeof body.listing === "string") {
-      const [l] = await db.select({ id: listings.id, title: listings.title }).from(listings).where(eq(listings.slug, body.listing)).limit(1);
+      const [l] = await db
+        .select({ id: listings.id, title: listings.title })
+        .from(listings)
+        .innerJoin(suppliers, eq(listings.supplierId, suppliers.id))
+        .where(and(eq(listings.slug, body.listing), eq(listings.status, "active"), eq(suppliers.status, "approved")))
+        .limit(1);
       if (!l) return NextResponse.json({ error: "That listing is no longer available." }, { status: 404 });
       listingId = l.id;
       data.commodity ??= l.title;
       context = l.title;
     }
     if (kind === "rfq_offer" && typeof body.rfq === "string") {
-      const [r] = await db.select({ id: rfqs.id, commodity: rfqs.commodity, ref: rfqs.ref }).from(rfqs).where(eq(rfqs.ref, body.rfq)).limit(1);
+      const [r] = await db
+        .select({ id: rfqs.id, commodity: rfqs.commodity, ref: rfqs.ref })
+        .from(rfqs)
+        .where(and(eq(rfqs.ref, body.rfq), eq(rfqs.status, "open")))
+        .limit(1);
       if (!r) return NextResponse.json({ error: "That buying request is no longer open." }, { status: 404 });
       rfqId = r.id;
       data.commodity ??= r.commodity;
       context = `${r.ref} · ${r.commodity}`;
     }
 
+    const user = await getCurrentUser();
     const record: NewEnquiry = {
       kind,
+      userId: user?.id ?? null,
+      supplierId: kind === "rfq_offer" ? (user?.supplierId ?? null) : null,
       listingId,
       rfqId,
       name: data.name!,
