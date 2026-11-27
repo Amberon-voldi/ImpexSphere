@@ -27,7 +27,7 @@ npm run db:migrate           # create tables
 npm run dev                  # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`, with `DATABASE_URL` set and `npm run db:migrate` run on each deploy.
+Production: `npm run build && npm start`, with `RDS_DATABASE_URL` set, and `npm run db:migrate` run on each deploy.
 
 ## Database (PostgreSQL)
 
@@ -37,6 +37,7 @@ The site uses [Drizzle ORM](https://orm.drizzle.team) with the `postgres` driver
 | --- | --- |
 | `src/db/schema.ts` | Table definitions, the source of truth |
 | `src/db/index.ts` | Connection pool (`getDb()`) |
+| `src/db/url.ts` | Picks the connection string: `RDS_DATABASE_URL` (production, AWS RDS) first, then `DATABASE_URL` (local). Adds `sslmode=require` for `*.rds.amazonaws.com` hosts unless an `sslmode` is already set |
 | `drizzle/` | Generated SQL migrations, committed |
 
 | Command | Does |
