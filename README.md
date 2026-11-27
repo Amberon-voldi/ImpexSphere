@@ -4,26 +4,31 @@ The B2B import–export platform of **SP International Private Limited** ([spint
 
 ## Website
 
-Built with Next.js (App Router) and TypeScript, with no UI framework. All styling lives in `src/app/globals.css`.
+A dark, animated B2B marketplace built with Next.js (App Router), TypeScript and [Motion](https://motion.dev). No UI framework; all styling lives in `src/app/globals.css`. The hero globe uses [cobe](https://github.com/shuding/cobe).
 
 | Route | Purpose |
 | --- | --- |
-| `/` | Home: the main message, products, the four services, the 8-step order-backed model, trust pillars |
-| `/products` | Turmeric, red chilli and cumin with typical specs, plus commodities available on request |
-| `/buyers` | How ordering works, payment terms, **quote request form** (`#quote`, prefilled via `?commodity=`) |
-| `/suppliers` | Export enablement vs logistics support, verification criteria, **supplier registration form** (`#register`) |
-| `/about` | Problems solved, verticals, 5-phase roadmap |
-| `/contact` | General contact form |
-| `/api/enquiry` | Receives all three forms, validates them, saves to Postgres and optionally emails a notification |
+| `/` | Hero with 3D globe and live offers, price ticker, stats, categories, trending offers, open buying requests, how trade works |
+| `/marketplace` | All live listings with instant search, filters (category, price, origin, supplier status, lab report), sorting, grid/list view; filters sync to the URL |
+| `/marketplace/[slug]` | Listing: price-history chart, specs, certifications, supplier card, quantity → value calculator, **quote request form** |
+| `/suppliers`, `/suppliers/[slug]` | Supplier directory and profiles with their live offers |
+| `/rfq` | Open buying requests plus a 4-step **post-a-request wizard** (`?commodity=` prefills it) |
+| `/rfq/[ref]` | One buying request with a **send-an-offer form** for suppliers |
+| `/sell` | Supplier onboarding and **application form** |
+| `/about`, `/contact` | Company story and **contact form** |
+| `/api/enquiry`, `/api/rfq`, `/api/search` | Form handlers (save to Postgres, optional email) and the ⌘K search index |
 
-Site copy (products, services, steps, phases) lives in `src/lib/content.ts`.
+Site-wide: ⌘K / Ctrl+K (or `/`) command palette, a shortlist with side-by-side compare (saved in the browser), page transitions, scroll-driven animations. Animations respect `prefers-reduced-motion`.
+
+Fixed copy (verticals, steps, phases, destinations) lives in `src/lib/content.ts`. Marketplace data comes from the database (`src/lib/queries.ts`). Indicative USD prices use the rate in `src/lib/format.ts` (`USD_INR`).
 
 ## Run
 
 ```sh
 npm install
 cp .env.example .env.local   # set DATABASE_URL
-npm run db:migrate           # create tables
+npm run db:migrate           # create the tables
+npm run db:seed              # optional: categories + sample data
 npm run dev                  # http://localhost:3000
 ```
 
@@ -46,12 +51,25 @@ The site uses [Drizzle ORM](https://orm.drizzle.team) with the `postgres` driver
 | `npm run db:migrate` | Applies pending migrations to `DATABASE_URL` |
 | `npm run db:studio` | Opens Drizzle Studio to browse the data |
 
-**`enquiries` table:** every quote request, supplier registration and contact message, with `kind` (`quote` / `supplier` / `contact`) and `status` (`new` / `in_progress` / `closed` / `spam`), plus the form fields, IP, user agent and timestamps. Bot submissions caught by the honeypot are not stored.
+### Isolation from other apps
 
-## Email notifications (optional)
+Everything ImpexSphere creates lives in its own Postgres schema, **`impexsphere`**: tables, enum types and the migrations log (`impexsphere.__migrations`). Nothing is created in `public`, and `drizzle-kit` is limited to that schema (`schemaFilter`), so other apps' tables in the same database are never read, changed or dropped.
 
-Set `RESEND_API_KEY`, `ENQUIRY_TO_EMAIL` and `ENQUIRY_FROM_EMAIL` to get an email for each new submission. Submissions are always saved to Postgres first. If the email fails, it is only logged, and the submission is still saved.
+### Tables (`impexsphere.*`)
 
-## Next: the marketplace (Phase 3)
+| Table | What |
+| --- | --- |
+| `categories` | Commodity categories, with a colour and art shape |
+| `suppliers` | Supplier companies, verification level (`listed` / `verified` / `trusted`), stats |
+| `listings` | Offers: price (₹/kg), MOQ, stock, specs, incoterms, status (`draft` / `active` / `paused` / `sold_out`) |
+| `listing_prices` | Daily price history per listing (charts and sparklines) |
+| `rfqs` | Buying requests. New ones are `pending` and only appear publicly once set to `open` |
+| `enquiries` | Quote requests, offers on RFQs, supplier applications, contact messages (`status`: `new` / `in_progress` / `closed` / `spam`) |
 
-Supplier profiles, listings with lab reports, buyer search and comparison, and enquiries and RFQs. These will be added to this same app. The previous Flutter app is preserved in git history.
+### Sample data
+
+`npm run db:seed` adds 9 categories plus 10 suppliers, ~43 listings and 8 buying requests that are **made up** and flagged `is_sample` (shown with a "Sample" badge). Remove them before launch with `npm run db:unseed` (categories stay). Running the seed twice doesn't create duplicates.
+
+To publish a buying request: `update impexsphere.rfqs set status = 'open' where ref = 'RFQ-…';`
+
+Bot submissions caught by the honeypot are not stored.

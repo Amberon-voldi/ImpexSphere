@@ -1,140 +1,332 @@
 import Link from "next/link";
-import CtaBand from "@/components/CtaBand";
-import { products, tradeSteps, trustPillars, verticals } from "@/lib/content";
+import CommodityArt from "@/components/CommodityArt";
+import Globe from "@/components/Globe";
+import Icon from "@/components/Icon";
+import ListingCard from "@/components/ListingCard";
+import RfqItem from "@/components/RfqItem";
+import Ticker from "@/components/Ticker";
+import { Counter, Magnetic, Marquee, Reveal, RotatingWord, SplitWords, Stagger, StaggerItem, Tilt } from "@/components/fx";
+import { FloatCards, HeroSearch, OrbitRings, ScrollSteps } from "@/components/home";
+import { destinations, tradeSteps, trustPillars, verticals } from "@/lib/content";
+import { inr } from "@/lib/format";
+import { getActiveListings, getCategories, getOpenRfqs, getStats, safe } from "@/lib/queries";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const [listingsR, catsR, rfqsR, statsR] = await Promise.all([
+    safe(getActiveListings, []),
+    safe(getCategories, []),
+    safe(() => getOpenRfqs(4), []),
+    safe(getStats, { listings: 0, suppliers: 0, rfqs: 0, stock: 0, states: 0 }),
+  ]);
+  const listings = listingsR.data;
+  const cats = catsR.data.filter((c) => c.count > 0);
+  const stats = statsR.data;
+  const featured = [...listings].sort((a, b) => Number(b.featured) - Number(a.featured) || b.views - a.views).slice(0, 8);
+  const movers = [...listings].sort((a, b) => Math.abs(b.change) - Math.abs(a.change));
+  const dbDown = listingsR.error;
+
   return (
     <>
+      {/* HERO */}
       <section className="hero">
         <div className="container hero-grid">
           <div>
-            <span className="eyebrow">B2B import–export · Indian commodities</span>
+            <Reveal y={10}>
+              <span className="eyebrow">
+                <span className="live-dot" /> Live B2B marketplace · {stats.suppliers} suppliers · {stats.listings} offers
+              </span>
+            </Reveal>
             <h1>
-              Indian spices, sourced from <em>verified</em> suppliers and shipped on order.
+              <SplitWords text="Source India's" />
+              <span className="line">
+                <span className="serif gold-text">
+                  <RotatingWord words={["turmeric", "chillies", "cumin", "cardamom", "pepper", "coriander"]} />
+                </span>
+              </span>
+              <SplitWords text="verified end to end." delay={0.25} />
             </h1>
-            <p className="lead">
-              ImpexSphere connects overseas importers with India&apos;s producers and processors. We buy only
-              against confirmed, prepaid orders, check quality before shipment and handle export end to end.
-            </p>
-            <div className="btn-row">
-              <Link href="/buyers#quote" className="btn btn-primary">Request a quote</Link>
-              <Link href="/suppliers#register" className="btn btn-ghost">I&apos;m a supplier</Link>
+            <Reveal delay={0.5}>
+              <p className="lead">
+                Compare live offers from verified Indian growers and processors, check lab reports before you
+                enquire, and trade with an exporter that ships only against confirmed orders.
+              </p>
+            </Reveal>
+            <Reveal delay={0.65}>
+              <HeroSearch />
+              <div className="hero-tags">
+                <span className="muted">Popular:</span>
+                {cats.slice(0, 5).map((c) => (
+                  <Link key={c.slug} href={`/marketplace?category=${c.slug}`} className="chip chip-dot" style={{ ["--c" as string]: c.hue }}>
+                    {c.name}
+                  </Link>
+                ))}
+              </div>
+            </Reveal>
+          </div>
+          <div className="hero-visual">
+            <Globe />
+            <FloatCards
+              items={movers.slice(0, 3).map((l) => ({
+                title: l.title,
+                price: l.price,
+                change: l.change,
+                origin: l.origin,
+                href: `/marketplace/${l.slug}`,
+                hue: l.category.hue,
+              }))}
+            />
+          </div>
+        </div>
+        <div className="scroll-cue" aria-hidden>
+          <span className="mouse" />
+          Scroll
+        </div>
+      </section>
+
+      <Ticker listings={movers} />
+
+      {dbDown && (
+        <div className="container" style={{ marginTop: 30 }}>
+          <div className="notice">Live marketplace data is temporarily unavailable. Please refresh in a moment.</div>
+        </div>
+      )}
+
+      {/* STATS */}
+      <section className="section-sm">
+        <div className="container">
+          <Reveal>
+            <div className="stats">
+              <div className="stat">
+                <div className="num"><Counter to={stats.listings} /></div>
+                <div className="lbl">Live offers</div>
+              </div>
+              <div className="stat">
+                <div className="num"><Counter to={Math.round(stats.stock)} suffix={<small>MT</small>} /></div>
+                <div className="lbl">Stock on offer</div>
+              </div>
+              <div className="stat">
+                <div className="num"><Counter to={stats.suppliers} /></div>
+                <div className="lbl">Suppliers across {stats.states} states</div>
+              </div>
+              <div className="stat">
+                <div className="num"><Counter to={stats.rfqs} /></div>
+                <div className="lbl">Open buying requests</div>
+              </div>
             </div>
-          </div>
-          <aside className="hero-card" aria-label="How an order works">
-            <h3>How every trade works</h3>
-            <ol className="hero-steps">
-              <li><span className="n">1</span><div><strong>You order.</strong> <span>Spec, quantity, price, delivery.</span></div></li>
-              <li className="gate"><span className="n">2</span><div><strong>You pay an advance.</strong> <span>100% by default, 40–50% by agreement.</span></div></li>
-              <li><span className="n">3</span><div><strong>We procure &amp; inspect.</strong> <span>From verified Indian suppliers, checked against your spec.</span></div></li>
-              <li><span className="n">4</span><div><strong>We pack, document &amp; ship.</strong> <span>Export paperwork, freight and customs handled.</span></div></li>
-            </ol>
-          </aside>
+          </Reveal>
         </div>
       </section>
 
-      <section className="section section-alt">
-        <div className="container">
-          <div className="section-head">
-            <span className="eyebrow">What we trade</span>
-            <h2>Starting with India&apos;s signature spices</h2>
-            <p className="lead">Turmeric, red chilli and cumin today, with more agricultural commodities added as our supplier network grows.</p>
+      {/* CATEGORIES */}
+      {cats.length > 0 && (
+        <section className="section">
+          <div className="container">
+            <div className="section-head">
+              <Reveal>
+                <span className="eyebrow">Categories</span>
+                <h2>
+                  Every grade, <span className="serif gold-text">every origin.</span>
+                </h2>
+              </Reveal>
+              <Reveal delay={0.1}>
+                <Link href="/marketplace" className="btn">
+                  All categories <Icon name="arrow" size={16} className="arrow" />
+                </Link>
+              </Reveal>
+            </div>
+            <Stagger className="cat-grid">
+              {cats.slice(0, 7).map((c, i) => (
+                <StaggerItem key={c.slug} className="cat-tile-wrap" >
+                  <Link href={`/marketplace?category=${c.slug}`} style={{ display: "contents" }}>
+                    <Tilt className={`card cat-tile cat-${i}`} max={5}>
+                      <CommodityArt hue={c.hue} shape={c.shape} seed={c.slug} density={i === 0 ? 1.4 : 1} />
+                      <div className="shade" />
+                      <span className="chip" style={{ alignSelf: "flex-start", backdropFilter: "blur(8px)" }}>
+                        {c.count} offers{c.minPrice ? ` · from ${inr(c.minPrice)}/kg` : ""}
+                      </span>
+                      <div className="meta">
+                        <div>
+                          <h3>{c.name}</h3>
+                          <p>{c.blurb}</p>
+                        </div>
+                        <span className="go"><Icon name="arrowUpRight" /></span>
+                      </div>
+                    </Tilt>
+                  </Link>
+                </StaggerItem>
+              ))}
+            </Stagger>
           </div>
-          <div className="grid grid-3">
-            {products.map((p) => (
-              <Link key={p.slug} href={`/products#${p.slug}`} className="card product" style={{ textDecoration: "none" }}>
-                <span className="origin">{p.origin}</span>
-                <h3>{p.name}</h3>
-                <p>{p.summary}</p>
-                <span className="note" style={{ marginTop: "auto", color: "var(--navy)", fontWeight: 600 }}>View specifications →</span>
+        </section>
+      )}
+
+      {/* FEATURED */}
+      {featured.length > 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="container">
+            <div className="section-head">
+              <Reveal>
+                <span className="eyebrow">Trending offers</span>
+                <h2>Fresh on the floor.</h2>
+                <p>Indicative ex-warehouse prices from verified suppliers. Shortlist offers to compare them side by side.</p>
+              </Reveal>
+              <Reveal delay={0.1}>
+                <Link href="/marketplace" className="btn">
+                  Browse all {stats.listings} <Icon name="arrow" size={16} className="arrow" />
+                </Link>
+              </Reveal>
+            </div>
+            <Stagger className="listing-grid" gap={0.06}>
+              {featured.map((l) => (
+                <StaggerItem key={l.slug}>
+                  <ListingCard l={l} />
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </div>
+        </section>
+      )}
+
+      {/* RFQs */}
+      {rfqsR.data.length > 0 && (
+        <section className="section" style={{ paddingTop: 0 }}>
+          <div className="container two-col">
+            <Reveal>
+              <span className="eyebrow">Buying requests</span>
+              <h2>
+                Buyers are asking. <span className="serif gold-text">Right now.</span>
+              </h2>
+              <p className="lead">
+                Importers post what they need, we match them with verified suppliers. Post yours and get offers,
+                or send an offer on an open request.
+              </p>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 26 }}>
+                <Magnetic>
+                  <Link href="/rfq#post" className="btn btn-gold btn-lg">
+                    Post a buying request <Icon name="arrow" size={16} className="arrow" />
+                  </Link>
+                </Magnetic>
+                <Link href="/rfq" className="btn btn-lg btn-ghost">
+                  See all {stats.rfqs}
+                </Link>
+              </div>
+            </Reveal>
+            <Stagger className="rfq-list">
+              {rfqsR.data.map((r) => (
+                <StaggerItem key={r.ref}>
+                  <RfqItem r={r} />
+                </StaggerItem>
+              ))}
+            </Stagger>
+          </div>
+        </section>
+      )}
+
+      {/* HOW IT WORKS */}
+      <section className="section">
+        <div className="container steps-wrap">
+          <div className="steps-sticky">
+            <Reveal>
+              <span className="eyebrow">Order-backed trade</span>
+              <h2>
+                We buy only after <span className="serif gold-text">you&apos;ve ordered.</span>
+              </h2>
+              <p className="lead">
+                Every export runs on a confirmed order and an advance. No speculative stock, no surprises: eight
+                steps from enquiry to settlement, each one inspected and documented.
+              </p>
+              <Link href="/about" className="btn" style={{ marginTop: 10 }}>
+                How we work <Icon name="arrow" size={16} className="arrow" />
               </Link>
-            ))}
+            </Reveal>
           </div>
+          <ScrollSteps steps={tradeSteps} />
         </div>
       </section>
 
-      <section className="section">
+      {/* VERTICALS */}
+      <section className="section" style={{ paddingTop: 20 }}>
         <div className="container">
           <div className="section-head">
-            <span className="eyebrow">One platform, four services</span>
-            <h2>From a single shipment to a global sourcing network</h2>
+            <Reveal>
+              <span className="eyebrow">One platform</span>
+              <h2>Four ways to trade.</h2>
+            </Reveal>
           </div>
-          <div className="grid grid-4">
+          <Stagger className="vert-grid">
             {verticals.map((v) => (
-              <div key={v.key} className="card">
-                <span className="badge">{v.key}</span>
-                <h3>{v.title}</h3>
-                <p>{v.body}</p>
-              </div>
+              <StaggerItem key={v.key}>
+                <Tilt className="card vert" max={6}>
+                  <span className="k">{v.key}</span>
+                  <h3>{v.title}</h3>
+                  <p>{v.body}</p>
+                </Tilt>
+              </StaggerItem>
             ))}
-          </div>
+          </Stagger>
         </div>
       </section>
 
-      <section className="section section-alt">
+      {/* TRUST */}
+      <section className="section" style={{ paddingTop: 20 }}>
         <div className="container">
-          <div className="section-head">
-            <span className="eyebrow">The order-backed model</span>
-            <h2>We never buy on speculation</h2>
-            <p className="lead">Procurement starts only once the buyer&apos;s advance has arrived, so there is no unsold stock and no speculative risk passed on to you.</p>
-          </div>
-          <ol className="steps">
-            {tradeSteps.map((s, i) => (
-              <li key={s.title} className={i === 2 ? "gate" : undefined}>
-                <strong>{s.title}</strong>
-                <span>{s.body}</span>
-              </li>
+          <Stagger className="trust-grid">
+            {trustPillars.map((t, i) => (
+              <StaggerItem key={t.title}>
+                <Tilt className="card trust" max={5}>
+                  <div className="ic"><Icon name={["shield", "bolt", "flask"][i]} size={22} /></div>
+                  <h3>{t.title}</h3>
+                  <p>{t.body}</p>
+                </Tilt>
+              </StaggerItem>
             ))}
-          </ol>
+          </Stagger>
         </div>
       </section>
 
-      <section className="section section-dark">
-        <div className="container">
-          <div className="section-head">
-            <span className="eyebrow">Built on trust</span>
-            <h2>A network grown from real trades, not cold listings</h2>
-            <p className="lead">Most listing sites start with unverified data. We start with suppliers we have already traded with.</p>
-          </div>
-          <div className="grid grid-3">
-            {trustPillars.map((t) => (
-              <div key={t.title} className="card">
-                <h3>{t.title}</h3>
-                <p>{t.body}</p>
-              </div>
+      {/* DESTINATIONS */}
+      <section className="section-sm">
+        <Reveal>
+          <p className="container eyebrow" style={{ display: "flex", justifyContent: "center" }}>Shipping to</p>
+        </Reveal>
+        <div className="countries">
+          <Marquee duration={50}>
+            {destinations.map((d) => (
+              <span key={d} className="country">{d}</span>
             ))}
-          </div>
+          </Marquee>
         </div>
       </section>
 
+      {/* CTA */}
       <section className="section">
-        <div className="container split">
-          <div>
-            <span className="eyebrow">For buyers</span>
-            <h2>Reliable supply, clear terms</h2>
-            <ul className="checklist">
-              <li>Importers, distributors, food processors and commodity traders</li>
-              <li>Quality inspected against your agreed specification</li>
-              <li>Lab reports and documents with every lot</li>
-              <li>Export paperwork, freight and customs handled</li>
-            </ul>
-            <Link href="/buyers" className="btn btn-primary">How buying works</Link>
-          </div>
-          <div>
-            <span className="eyebrow">For suppliers</span>
-            <h2>Reach overseas demand</h2>
-            <ul className="checklist">
-              <li>No export licence? We buy from you and export in our name</li>
-              <li>Already exporting? We coordinate your logistics for a fee</li>
-              <li>Producers, processors, wholesalers and traders welcome</li>
-              <li>Early access to the ImpexSphere marketplace</li>
-            </ul>
-            <Link href="/suppliers" className="btn btn-ghost">How supplying works</Link>
-          </div>
+        <div className="container">
+          <Reveal>
+            <div className="cta">
+              <OrbitRings />
+              <span className="eyebrow">Start trading</span>
+              <h2>
+                Your next container of spice is <span className="serif gold-text">one request away.</span>
+              </h2>
+              <p>Tell us the grade, quantity and port. Verified suppliers respond with offers, usually within a day.</p>
+              <div className="actions">
+                <Magnetic>
+                  <Link href="/rfq#post" className="btn btn-gold btn-lg">
+                    Post a buying request <Icon name="arrow" size={16} className="arrow" />
+                  </Link>
+                </Magnetic>
+                <Magnetic>
+                  <Link href="/sell" className="btn btn-lg">
+                    List as a supplier
+                  </Link>
+                </Magnetic>
+              </div>
+            </div>
+          </Reveal>
         </div>
       </section>
-
-      <CtaBand />
     </>
   );
 }

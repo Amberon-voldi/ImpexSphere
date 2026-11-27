@@ -1,45 +1,113 @@
 "use client";
 
-import Image from "next/image";
+import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { nav } from "@/lib/content";
+import Icon from "./Icon";
+import { useApp } from "./Providers";
+
+export function Logo() {
+  return (
+    <span className="logo" aria-label="ImpexSphere">
+      <b>IMPEX</b>
+      <span>
+        SP
+        <i />
+        HERE
+      </span>
+    </span>
+  );
+}
 
 export default function Header() {
   const pathname = usePathname();
+  const { items, setDrawer, setPalette } = useApp();
   const [open, setOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+  const [hover, setHover] = useState<string | null>(null);
+  const { scrollY } = useScroll();
+  useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 20));
+  useEffect(() => setOpen(false), [pathname]);
+
+  const current = nav.find((n) => pathname === n.href || pathname.startsWith(n.href + "/"))?.href;
+  const pillOn = hover ?? current;
 
   return (
-    <header className="header">
-      <div className="container header-inner">
-        <Link href="/" className="logo" aria-label="ImpexSphere home" onClick={() => setOpen(false)}>
-          <Image src="/logo.png" alt="ImpexSphere" width={2746} height={456} priority />
-        </Link>
-        <button
-          className="menu-toggle"
-          aria-expanded={open}
-          aria-controls="site-nav"
-          onClick={() => setOpen((o) => !o)}
-        >
-          {open ? "Close" : "Menu"}
-        </button>
-        <nav id="site-nav" className={`nav${open ? " open" : ""}`}>
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              aria-current={pathname === item.href ? "page" : undefined}
-              onClick={() => setOpen(false)}
-            >
-              {item.label}
-            </Link>
-          ))}
-          <Link href="/contact" className="btn btn-primary" onClick={() => setOpen(false)}>
-            Request a quote
+    <header className={`header${scrolled || open ? " scrolled" : ""}`}>
+      <div className="container">
+        <div className="header-bar">
+          <Link href="/" aria-label="ImpexSphere home">
+            <Logo />
           </Link>
-        </nav>
+          <nav className="nav" onMouseLeave={() => setHover(null)} aria-label="Main">
+            {nav.map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                aria-current={current === item.href ? "page" : undefined}
+                onMouseEnter={() => setHover(item.href)}
+              >
+                {pillOn === item.href && (
+                  <motion.span layoutId="nav-pill" className="pill" transition={{ type: "spring", stiffness: 400, damping: 34 }} />
+                )}
+                {item.label}
+              </Link>
+            ))}
+          </nav>
+          <div className="header-actions">
+            <button className="kbd-btn" onClick={() => setPalette(true)} aria-label="Search (Ctrl+K)">
+              <Icon name="search" size={16} />
+              <span className="label">Search marketplace</span>
+              <kbd>⌘K</kbd>
+            </button>
+            <button className="icon-btn" onClick={() => setDrawer(true)} aria-label={`Shortlist, ${items.length} saved`}>
+              <Icon name="heart" />
+              <AnimatePresence>
+                {items.length > 0 && (
+                  <motion.span
+                    key={items.length}
+                    className="count"
+                    initial={{ scale: 0 }}
+                    animate={{ scale: 1 }}
+                    exit={{ scale: 0 }}
+                    transition={{ type: "spring", stiffness: 600, damping: 15 }}
+                  >
+                    {items.length}
+                  </motion.span>
+                )}
+              </AnimatePresence>
+            </button>
+            <Link href="/rfq#post" className="btn btn-gold btn-sm hide-sm">
+              Post RFQ
+            </Link>
+            <button className="icon-btn menu-toggle" aria-expanded={open} aria-controls="mobile-nav" aria-label="Menu" onClick={() => setOpen((o) => !o)}>
+              <Icon name={open ? "close" : "menu"} />
+            </button>
+          </div>
+        </div>
       </div>
+      <AnimatePresence>
+        {open && (
+          <motion.nav
+            id="mobile-nav"
+            className="mobile-nav"
+            initial={{ opacity: 0, y: -10, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            aria-label="Mobile"
+          >
+            {[...nav, { href: "/rfq#post", label: "Post a buying request" }, { href: "/contact", label: "Contact" }].map((item, i) => (
+              <motion.div key={item.href} initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.04 * i }}>
+                <Link href={item.href} onClick={() => setOpen(false)} style={{ display: "block" }}>
+                  {item.label}
+                </Link>
+              </motion.div>
+            ))}
+          </motion.nav>
+        )}
+      </AnimatePresence>
     </header>
   );
 }
