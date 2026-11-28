@@ -10,7 +10,9 @@ import postgres from "postgres";
 function databaseUrl() {
   const raw = process.env.RDS_DATABASE_URL || process.env.DATABASE_URL;
   if (!raw) throw new Error("Set RDS_DATABASE_URL (production) or DATABASE_URL (local).");
-  const url = new URL(raw);
+  const url = new URL(raw.trim());
+  // Prisma-only options make Postgres reject the connection.
+  for (const k of ["schema", "connection_limit", "pool_timeout", "pgbouncer", "socket_timeout", "statement_cache_size", "sslaccept"]) url.searchParams.delete(k);
   if (url.hostname.endsWith(".rds.amazonaws.com") && !url.searchParams.has("sslmode")) {
     url.searchParams.set("sslmode", "require");
   }

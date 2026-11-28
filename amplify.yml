@@ -1,0 +1,23 @@
+# AWS Amplify build settings (these override the build settings saved in the console).
+# Standard Next.js SSR build plus one essential step: Amplify only exposes
+# environment variables to the running server if they are written to
+# .env.production during the build (scripts/write-env.cjs). Without it the site
+# can't reach the database.
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci --cache .npm --prefer-offline
+    build:
+      commands:
+        - node scripts/write-env.cjs
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - .next/cache/**/*
+      - .npm/**/*
